@@ -1,0 +1,8 @@
+# Runtime state, specific to this machine and regenerated on demand:
+#   sessions.json    what is currently spawned
+#   known-dirs.json  rebuilt by `cc dirs` from Claude's own records
+#   dirs-index.json  the numbering `cc dirs` last printed
+.state/
+
+__pycache__/
+*.pyc
