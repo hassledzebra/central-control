@@ -21,7 +21,7 @@ became a stray positional argument.
 what `ListAgents` shows peers as.
 
 ```
-claude "--remote-control=msot-probe" "--name" "msot-probe"
+claude "--remote-control=api-probe" "--name" "api-probe"
 ```
 
 **Re-verify:** spawn with `-Name foo`, then read the `from-name=` on the message
@@ -44,16 +44,16 @@ biggest obstacle to unattended launching. What we established:
 
   `rse` resolves the directory before the lookup — to a git root, otherwise up
   the tree — so trust is **inherited by descendants**.
-- Because `C:\Users\zhan1\OneDrive - University of Central Oklahoma` is trusted,
-  every folder under it starts with no prompt. That is the whole working set,
-  including everything `cc dirs` lists.
+- So a folder under a root you have already accepted starts with no prompt. On
+  the machine this was built for, one accepted root covered the entire working
+  set, including everything `cc dirs` lists.
 - Writing the flag onto a fresh leaf folder outside a trusted tree **does not
   reliably suppress the dialog**. Tested three times (a temp folder, then
   `~\cc-smoke` twice) — the prompt appeared every time even with the flag
   present and readable in the config.
 - A session rooted at the home directory can never be pre-accepted; the binary
   says so outright: *"home trust is session-only"*. So a folder directly under
-  `C:\Users\zhan1` always asks.
+  your home directory always asks.
 
 Two things that were tried and did **not** turn out to be the cause: the config
 being clobbered by another running session (the entry was still there
@@ -78,10 +78,10 @@ quotes the path correctly on the way into `wt`, but `wt` re-parses and hands
 `cmd.exe` an **unquoted** path:
 
 ```
-cmd.exe /k C:\Users\zhan1\OneDrive - University of Central Oklahoma\...\smoke-test.cmd
+cmd.exe /k C:\Users\you\Some Folder With Spaces\launch\smoke-test.cmd
 ```
 
-cmd then tried to run `C:\Users\zhan1\OneDrive` and left a bare prompt.
+cmd then tried to run `C:\Users\you\Some` and left a bare prompt.
 
 **Fix:** generated launch scripts live in `%LOCALAPPDATA%\central-control\launch`
 — outside this project, because this project's own path contains spaces. `spawn`
@@ -242,7 +242,7 @@ no console. Stop the Claude process by name (`cc stop`), not the window.
 - `~/.claude.json` → `projects{}` — every directory Claude has been opened in.
 - `~/.claude/projects/<mangled>/*.jsonl` — one file per session. The folder name
   is the absolute path with every `:`, `\`, `/` and space replaced by `-`, which
-  is lossy (`EPIx2\manuscript` and `EPIx2-manuscript` collide), so the real path
+  is lossy (`proj\manuscript` and `proj-manuscript` collide), so the real path
   is read back from the `cwd` field inside the transcript when the mangled name
   does not match a known project.
 

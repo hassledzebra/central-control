@@ -41,8 +41,8 @@ quoting, trust, environment and Windows Terminal behaviour this depends on,
 most of it learned by breaking something first.
 
 - **Trust.** An untrusted folder shows a blocking trust prompt. Trust is
-  inherited down the tree, and the OneDrive root is trusted, so everything
-  `cc dirs` lists starts without one. Outside that tree `spawn` writes the flag
+  inherited down the tree, so anything under a root you have already accepted
+  starts without one. Outside that tree `spawn` writes the flag
   and warns that the window may still ask once; a folder directly under the home
   directory always asks. Watch the `trust` line in the spawn output.
 - **Environment.** The launch script clears this session's own `CLAUDE_*`
