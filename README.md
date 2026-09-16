@@ -50,7 +50,7 @@ dependencies to fetch.
 | | |
 |---|---|
 | `cc dirs` | folders that have had a Claude session before, numbered |
-| `cc spawn <dir\|N> ["prompt"]` | open a window there and start a session |
+| `cc spawn <dir\|N> ["prompt"]` | open a window there, continuing that folder's last conversation |
 | `cc list` | what has been spawned, and what is still alive |
 | `cc resume <name> ["message"]` | reopen a stopped session on the same conversation |
 | `cc stop <name>` | end a session (its window stays open) |
@@ -96,6 +96,34 @@ gives you a peer called `api-fix`. Without `-Name`, the name is the folder plus
 four hex digits. `-Parent <name>` tells the new session who launched it, and asks
 it to report back there when it finishes, gets blocked, or needs a decision.
 
+### Continuing, not starting over
+
+A spawn picks up where that folder left off. Unless you pass `-New`, it looks
+for a conversation to continue before making one:
+
+- `-ResumeSessionId <id>` settles it outright.
+- Otherwise it takes the more recently used of two candidates: the conversation
+  this `-Name` was last spawned on (`.state\sessions.json`), and the newest
+  transcript in that folder (`~/.claude/projects/`). A name's own thread is
+  easily the older of the two, since the registry only moves when a spawn writes
+  it, and the point is to resume what was actually last worked on.
+- With neither available — a folder Claude has never been opened in — it starts
+  fresh.
+
+Conversations that are open somewhere right now are never candidates, so two
+windows cannot land on the same transcript. A spawn into a busy folder continues
+the newest conversation that is *free*, or starts a new one.
+
+The spawn output says which way it went:
+
+```
+  session   api-fix
+  history   resumed 652d26a9-… -- newest in this folder, 2026-09-15 22:00
+```
+
+`cc resume <name>` is still there for continuing one particular session by name,
+and now refuses in the same cases a spawn would.
+
 Spawning is not instant: the window opens, then Claude takes a few seconds to
 start and register. `cc list` sees the process immediately; `ListAgents` shows
 the peer once it has finished starting.
@@ -123,6 +151,10 @@ The task fires at logon and then every `-CheckMinutes`. Each run passes
 window you closed, a crash, or a machine you logged back into all come back
 within one interval, and a session you started by hand is left alone. The
 Startup-folder method has no timer and only covers logon.
+
+What comes back is the same conversation, not a blank window — the replacement
+resumes the control session's last transcript, so it still knows what it was in
+the middle of.
 
 Verify it without rebooting:
 

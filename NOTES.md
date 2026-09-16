@@ -248,7 +248,29 @@ no console. Stop the Claude process by name (`cc stop`), not the window.
 
 ---
 
-## 11. Where Claude records which folders have been used
+## 11. Resuming a conversation
+
+`claude --resume <session-id>` takes the id a transcript is named after.
+Transcripts live in `~/.claude/projects/<mangled-dir>/<session-id>.jsonl`, where
+the folder name is the absolute path with every `:`, `\`, `/` and space turned
+into `-` — the same mangling `discover.py` already relies on.
+
+- Build that name with plain `.Replace()` calls, not a regex. A character class
+  containing a backslash has to survive PowerShell quoting *and* the regex
+  engine, and it silently matched nothing when first written this way.
+- `--resume` and `--session-id` are mutually exclusive: one supplies an id that
+  must already exist, the other one that must not. `spawn.ps1` emits exactly one
+  of them, which keeps a single guid on the command line for `Get-CCSessionPid`.
+- Never resume a conversation that is already open. `Test-CCConversationLive`
+  checks both places a live session shows up, because neither is complete:
+  a spawned one has its id on the command line, a hand-started one appears only
+  in `~/.claude/sessions/<pid>.json`.
+- A transcript's `LastWriteTime` is what "most recent" means here. It is updated
+  as the conversation runs, so the newest file is the one last worked in.
+
+---
+
+## 12. Where Claude records which folders have been used
 
 `bin\discover.py` merges two sources:
 
@@ -264,7 +286,7 @@ leftovers and are skipped.
 
 ---
 
-## 12. Writing these files
+## 13. Writing these files
 
 **Bash heredocs on this machine corrupt doubled backslashes.** Even with a
 quoted delimiter (`<<'EOF'`), `'(\\*)"'` reached disk as `'(\*)"'` — which is

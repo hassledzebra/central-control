@@ -1,7 +1,7 @@
 <#
     central-control -- launch and track Claude Code sessions in new windows.
 
-      cc spawn <dir> [prompt] [-Name x] [-Model opus] [-Effort high] ...
+      cc spawn <dir> [prompt] [-Name x] [-New] [-Model opus] [-Effort high] ...
       cc list [-Prune] [-Json]
       cc stop <name> [-Force] [-Forget]      cc stop -All
   cc autostart -Enable|-Disable|-Status
@@ -43,7 +43,9 @@ function Show-CCHelp {
 central-control -- launch Claude Code sessions in new terminal windows.
 
   cc spawn <directory> [prompt]     open a window there, start claude with
-                                    Remote Control on, register it as a peer
+                                    Remote Control on, register it as a peer.
+                                    Continues that folder's last conversation
+                                    unless you pass -New
   cc dirs [-Root <dir>] [-Filter s] folders that have had a Claude session
                                     before, numbered; spawn takes the number
   cc list [-Prune] [-Json]          what has been spawned, and what is alive
@@ -59,6 +61,7 @@ Spawning from the directory list:
   cc spawn 7 "check the build"      spawns in folder #7
 
 Common spawn options:
+  -New                   start a fresh conversation instead of continuing
   -Name <peer-name>      how other sessions address it   (default <folder>-xxxx)
   -Model <alias>         opus | sonnet | haiku | full model id
   -Effort <level>        low | medium | high | xhigh | max

@@ -165,21 +165,82 @@ function Get-CCSessionPid {
     return 0
 }
 
+function Get-CCClaudeHome {
+    if ($env:CLAUDE_CONFIG_DIR) { return $env:CLAUDE_CONFIG_DIR }
+    return (Join-Path $env:USERPROFILE '.claude')
+}
+
 # Claude Code keeps a file per live session in ~/.claude/sessions, named after
-# the pid and holding the peer name ListAgents shows. That is the only place a
-# session started by hand -- not by spawn.ps1 -- can be seen, so liveness checks
-# that must not spawn a duplicate look here rather than at sessions.json.
-function Get-CCPeer {
-    param([Parameter(Mandatory = $true)][string]$Name)
-    $dir = Join-Path $env:USERPROFILE '.claude\sessions'
-    if (-not (Test-Path -LiteralPath $dir)) { return $null }
+# the pid and holding both the peer name ListAgents shows and the session id.
+# That is the only place a session started by hand -- not by spawn.ps1 -- can be
+# seen, so liveness checks that must not spawn a duplicate look here.
+function Get-CCPeerRecord {
+    $dir = Join-Path (Get-CCClaudeHome) 'sessions'
+    if (-not (Test-Path -LiteralPath $dir)) { return }
     foreach ($f in Get-ChildItem -LiteralPath $dir -Filter '*.json' -ErrorAction SilentlyContinue) {
         try { $j = ConvertFrom-Json (Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8) } catch { continue }
-        if (-not $j -or $j.name -ne $Name -or -not $j.pid) { continue }
+        if (-not $j -or -not $j.pid) { continue }
         # A session file outlives its process, and Windows reuses pids, so the
         # pid has to still belong to a claude.exe before it counts as alive.
         $p = Get-Process -Id ([int]$j.pid) -ErrorAction SilentlyContinue
-        if ($p -and $p.ProcessName -eq 'claude') { return $j }
+        if ($p -and $p.ProcessName -eq 'claude') { $j }
+    }
+}
+
+function Get-CCPeer {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    foreach ($j in Get-CCPeerRecord) { if ($j.name -eq $Name) { return $j } }
+    return $null
+}
+
+# --- conversations --------------------------------------------------------
+
+# One transcript per session lives under ~/.claude/projects, in a folder named
+# after the directory with every ':', '', '/' and ' ' turned into '-'. The file
+# name is the session id, which is exactly what `claude --resume` takes.
+function Get-CCProjectDir {
+    param([Parameter(Mandatory = $true)][string]$Directory)
+    $full = [System.IO.Path]::GetFullPath($Directory).TrimEnd([char]92)
+    # Plain replacements, not a regex: the set includes a backslash, and getting
+    # that through both PowerShell quoting and a character class is a trap.
+    $mangled = $full.Replace(':', '-').Replace('\', '-').Replace('/', '-').Replace(' ', '-')
+    return (Join-Path (Join-Path (Get-CCClaudeHome) 'projects') $mangled)
+}
+
+function Get-CCConversation {
+    param(
+        [Parameter(Mandatory = $true)][string]$Directory,
+        [Parameter(Mandatory = $true)][string]$SessionId
+    )
+    $path = Join-Path (Get-CCProjectDir -Directory $Directory) "$SessionId.jsonl"
+    if (Test-Path -LiteralPath $path) { return (Get-Item -LiteralPath $path) }
+    return $null
+}
+
+# Resuming a conversation that is already open would either fail or fork it, so
+# both sources of liveness are consulted: a spawned session carries its id on
+# the command line, a hand-started one only shows up in ~/.claude/sessions.
+function Test-CCConversationLive {
+    param([Parameter(Mandatory = $true)][string]$SessionId)
+    if ((Get-CCSessionPid -SessionId $SessionId) -ne 0) { return $true }
+    foreach ($j in Get-CCPeerRecord) { if ($j.sessionId -eq $SessionId) { return $true } }
+    return $false
+}
+
+# The newest conversation in a folder that nobody has open. What a spawn with no
+# explicit id continues.
+function Get-CCLastConversation {
+    param([Parameter(Mandatory = $true)][string]$Directory)
+    $proj = Get-CCProjectDir -Directory $Directory
+    if (-not (Test-Path -LiteralPath $proj)) { return $null }
+    $files = @(Get-ChildItem -LiteralPath $proj -Filter '*.jsonl' -File -ErrorAction SilentlyContinue |
+               Sort-Object LastWriteTime -Descending)
+    foreach ($f in $files) {
+        if ($f.Length -eq 0) { continue }
+        # Anything not named after a session id is not something --resume takes.
+        if ($f.BaseName -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') { continue }
+        if (Test-CCConversationLive -SessionId $f.BaseName) { continue }
+        return [pscustomobject]@{ sessionId = $f.BaseName; lastUsed = $f.LastWriteTime; path = $f.FullName }
     }
     return $null
 }

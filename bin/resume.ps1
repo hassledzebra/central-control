@@ -26,8 +26,9 @@ param(
 $s = @(Get-CCSessions | Where-Object { $_.name -eq $Name })[0]
 if (-not $s) { throw "No session named '$Name'. Run bin\list.ps1 to see what is registered." }
 
-$p = Get-CCSessionPid -SessionId $s.sessionId
-if ($p -ne 0) { throw "Session '$Name' is still running (pid $p). Stop it first, or just message it." }
+if (Test-CCConversationLive -SessionId $s.sessionId) {
+    throw "Session '$Name' is still running. Stop it first, or just message it."
+}
 
 $spawn = @{
     Directory       = $s.directory

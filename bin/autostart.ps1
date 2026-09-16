@@ -18,7 +18,8 @@
 
     The Task method also keeps it up: the task re-runs every -CheckMinutes and
     spawns only when no session is answering to that name, so closing the window
-    or a crash brings it back within that window. Set -CheckMinutes 0 for a
+    or a crash brings it back within that window -- on the same conversation,
+    because that is what a spawn does by default. Set -CheckMinutes 0 for a
     logon-only task. The Startup folder cannot repeat, so it only covers logon.
 
 .EXAMPLE

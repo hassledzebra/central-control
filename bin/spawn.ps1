@@ -41,10 +41,14 @@ param(
     [ValidateSet('auto', 'wt', 'cmd')]
     [string]$Terminal = 'auto',
 
-    # Continue an existing conversation instead of starting one. The id doubles
-    # as the command-line marker used to find the process later, so either way
-    # exactly one guid ends up on the command line.
+    # Continue one particular conversation. Without it a spawn still continues
+    # the most recent conversation in the directory; -New is how you opt out.
+    # The id doubles as the command-line marker used to find the process later,
+    # so either way exactly one guid ends up on the command line.
     [string]$ResumeSessionId,
+
+    # Start a fresh conversation, ignoring anything this folder already has.
+    [switch]$New,
 
     # Name of the launching session, so the child knows who to report back to.
     [string]$Parent,
@@ -79,6 +83,46 @@ if ($IfNotRunning) {
 if ($Directory -match '^[0-9]+$') { $Directory = Resolve-CCIndex -Number ([int]$Directory) }
 $dir = Resolve-CCDirectory -Path $Directory -Create:$Create
 $sessionName = New-CCName -Directory $dir -Requested $Name
+
+# Continuing beats starting over. A session that comes back after a crash, or a
+# folder you have worked in before, should still know what was going on; a blank
+# window that has to be told everything again is the exception, not the default.
+# Only conversations nobody has open are candidates -- see Get-CCLastConversation.
+$resumeReason = ''
+if (-not $ResumeSessionId -and -not $New) {
+    $candidates = @()
+
+    # What this name was last spawned on. A folder can hold several threads, so
+    # a named session is offered its own back rather than whatever is newest.
+    $prior = @(Get-CCSessions | Where-Object { $_.name -eq $sessionName -and $_.sessionId })[0]
+    if ($prior -and -not (Test-CCConversationLive -SessionId $prior.sessionId)) {
+        $f = Get-CCConversation -Directory $dir -SessionId $prior.sessionId
+        if ($f) {
+            $candidates += [pscustomobject]@{
+                sessionId = $prior.sessionId; lastUsed = $f.LastWriteTime
+                why = "what '$sessionName' was doing"
+            }
+        }
+    }
+
+    $last = Get-CCLastConversation -Directory $dir
+    if ($last) {
+        $candidates += [pscustomobject]@{
+            sessionId = $last.sessionId; lastUsed = $last.lastUsed
+            why = 'newest in this folder'
+        }
+    }
+
+    # Whichever was touched last wins. The registry entry only moves when a
+    # spawn writes it, so a name's own thread is easily older than work done in
+    # the same folder since -- and picking up where things left off is the point.
+    $pick = @($candidates | Sort-Object lastUsed -Descending)[0]
+    if ($pick) {
+        $ResumeSessionId = $pick.sessionId
+        $resumeReason = "$($pick.why), $($pick.lastUsed.ToString('yyyy-MM-dd HH:mm'))"
+    }
+}
+
 $sessionId = if ($ResumeSessionId) { $ResumeSessionId } else { [guid]::NewGuid().ToString() }
 $parentName = Get-CCParentName -Explicit $Parent
 
@@ -227,6 +271,12 @@ while ((Get-Date) -lt $deadline) {
 Write-Host ""
 Write-Host "  session   $sessionName" -ForegroundColor Green
 Write-Host "  directory $dir"
+if ($ResumeSessionId) {
+    $why = if ($resumeReason) { " -- $resumeReason" } else { '' }
+    Write-Host "  history   resumed $ResumeSessionId$why" -ForegroundColor Cyan
+} else {
+    Write-Host "  history   new conversation"
+}
 Write-Host "  terminal  $backend"
 Write-Host "  trust     $trust"
 if ($trust -notlike 'trusted*' -and $trust -notlike 'skipped*') {
@@ -243,6 +293,7 @@ Write-Host ""
 [pscustomobject]@{
     Name      = $sessionName
     SessionId = $sessionId
+    Resumed   = [bool]$ResumeSessionId
     Directory = $dir
     Terminal  = $backend
     Trust     = $trust
