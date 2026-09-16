@@ -37,6 +37,7 @@ $map = @{
     where  = 'dirs.ps1'
     autostart = 'autostart.ps1'
     recap  = 'recap.ps1'
+    briefing = 'briefing.ps1'
 }
 
 function Show-CCHelp {
@@ -55,6 +56,8 @@ central-control -- launch Claude Code sessions in new terminal windows.
   cc stop -All
   cc recap [-Days N] [-Limit N]     what was worked on lately and where each
                                     thread stopped, read from the transcripts
+  cc briefing -Enable [-At 06:57]   open that recap for you every morning
+  cc briefing -Disable|-Status
   cc autostart -Enable|-Disable|-Status
                                     start this control session at logon, and
                                     restart it whenever it is not running

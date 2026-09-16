@@ -165,6 +165,10 @@ def collect(days, want_git=True):
             if not turns:
                 continue  # a stub: opened, never used
             directory = transcript_cwd(full) or name
+            # The briefing session reads this recap every morning; left in, it
+            # would report itself as the most recent thing worked on, every day.
+            if os.path.basename(os.path.normpath(directory)).lower() == "briefing":
+                continue
             key = os.path.normpath(directory).lower()
             rec = folders.setdefault(key, {
                 "directory": os.path.normpath(directory),
