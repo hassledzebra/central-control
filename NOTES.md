@@ -232,6 +232,19 @@ no console. Stop the Claude process by name (`cc stop`), not the window.
   folder `.cmd` if policy ever blocks it.
 - Verify without rebooting: `Start-ScheduledTask -TaskName central-control`,
   then `Get-ScheduledTaskInfo` (`LastTaskResult` 0) and `cc list`.
+- The watchdog is a second trigger, because `New-ScheduledTaskTrigger` will only
+  attach a repetition to a `-Once` trigger. An interval with no duration is how
+  the task XML spells "forever", and the cmdlet will not emit that, so
+  `$t.Repetition.Duration = ''` is set on the object before registration.
+- Liveness for the watchdog is read from `~/.claude/sessions\<pid>.json`, not
+  from `.state\sessions.json`. Those files carry the peer `name` that
+  `ListAgents` shows, so a control session started by hand also counts and does
+  not get a duplicate spawned next to it. The file outlives its process and
+  Windows reuses pids, so the pid must still belong to a `claude` process.
+- `remoteControlAtStartup: true` in `~/.claude/settings.json` gives every
+  session Remote Control without a flag. `spawn.ps1` still passes
+  `--remote-control=<name>` because the flag is what supplies the name. The CLI
+  refuses to let project or local settings enable it -- user scope only.
 
 ---
 

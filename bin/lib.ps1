@@ -165,6 +165,25 @@ function Get-CCSessionPid {
     return 0
 }
 
+# Claude Code keeps a file per live session in ~/.claude/sessions, named after
+# the pid and holding the peer name ListAgents shows. That is the only place a
+# session started by hand -- not by spawn.ps1 -- can be seen, so liveness checks
+# that must not spawn a duplicate look here rather than at sessions.json.
+function Get-CCPeer {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    $dir = Join-Path $env:USERPROFILE '.claude\sessions'
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
+    foreach ($f in Get-ChildItem -LiteralPath $dir -Filter '*.json' -ErrorAction SilentlyContinue) {
+        try { $j = ConvertFrom-Json (Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8) } catch { continue }
+        if (-not $j -or $j.name -ne $Name -or -not $j.pid) { continue }
+        # A session file outlives its process, and Windows reuses pids, so the
+        # pid has to still belong to a claude.exe before it counts as alive.
+        $p = Get-Process -Id ([int]$j.pid) -ErrorAction SilentlyContinue
+        if ($p -and $p.ProcessName -eq 'claude') { return $j }
+    }
+    return $null
+}
+
 function Get-CCLiveSession {
     param([Parameter(Mandatory = $true)][string]$Name)
     foreach ($s in Get-CCSessions) {

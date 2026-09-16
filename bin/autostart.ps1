@@ -16,6 +16,11 @@
     the control session comes up in a terminal window with Remote Control on
     and registers itself as a peer named "central-control".
 
+    The Task method also keeps it up: the task re-runs every -CheckMinutes and
+    spawns only when no session is answering to that name, so closing the window
+    or a crash brings it back within that window. Set -CheckMinutes 0 for a
+    logon-only task. The Startup folder cannot repeat, so it only covers logon.
+
 .EXAMPLE
     .\bin\autostart.ps1 -Enable
     .\bin\autostart.ps1 -Status
@@ -45,6 +50,11 @@ param(
     [Parameter(ParameterSetName = 'Enable')]
     [string]$Name = 'central-control',
 
+    # Re-check this often and restart the session if it is gone. 0 disables the
+    # watchdog, leaving a plain logon trigger. Task method only.
+    [Parameter(ParameterSetName = 'Enable')]
+    [int]$CheckMinutes = 5,
+
     [Parameter(ParameterSetName = 'Enable')]
     [string]$Model,
 
@@ -67,7 +77,8 @@ function Get-CCAutostartArgs {
         '-File', "`"$spawn`"",
         '-Directory', "`"$Directory`"",
         '-Name', $Name,
-        '-NoParentContext'
+        '-NoParentContext',
+        '-IfNotRunning'
     )
     if ($Model) { $a += @('-Model', $Model) }
     return $a
@@ -83,6 +94,12 @@ function Show-CCAutostartStatus {
         if ($info -and $info.LastRunTime -gt [datetime]'1900-01-01') {
             Write-Host "          last run $($info.LastRunTime) -> result $($info.LastTaskResult)"
         }
+        $repeat = @($task.Triggers | ForEach-Object { $_.Repetition.Interval } | Where-Object { $_ })[0]
+        if ($repeat) {
+            Write-Host "          watchdog every $repeat -- restarts the session if it is gone"
+        } else {
+            Write-Host "          no watchdog: starts at logon only" -ForegroundColor Yellow
+        }
         Write-Host "          $(($task.Actions | Select-Object -First 1).Execute) $(($task.Actions | Select-Object -First 1).Arguments)" -ForegroundColor DarkGray
     } else {
         Write-Host "task      not registered"
@@ -94,11 +111,12 @@ function Show-CCAutostartStatus {
         Write-Host "startup   no shortcut"
     }
 
-    $live = Get-CCLiveSession -Name $Name
+    # The same check the watchdog makes, so status and behaviour cannot disagree.
+    $live = Get-CCPeer -Name $Name
     if ($live) {
-        Write-Host "session   '$Name' is running now" -ForegroundColor Green
+        Write-Host "session   '$Name' is running now (pid $($live.pid))" -ForegroundColor Green
     } else {
-        Write-Host "session   '$Name' is not running"
+        Write-Host "session   '$Name' is not running" -ForegroundColor Yellow
     }
 }
 
@@ -108,10 +126,22 @@ function Enable-CCAutostartTask {
     $argLine = (Get-CCAutostartArgs) -join ' '
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $argLine -WorkingDirectory $script:CCRoot
 
-    $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+    $logon = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
     if ($DelaySeconds -gt 0) {
         # The cmdlet has no -Delay for logon triggers; the property is there.
-        $trigger.Delay = "PT$([int]$DelaySeconds)S"
+        $logon.Delay = "PT$([int]$DelaySeconds)S"
+    }
+    $triggers = @($logon)
+
+    if ($CheckMinutes -gt 0) {
+        # The watchdog. A -Once trigger is the only kind the cmdlet will attach a
+        # repetition to; an empty Duration is how the XML spells "forever", and
+        # PowerShell will not produce that, so it is set on the object afterwards.
+        $watch = New-ScheduledTaskTrigger -Once -At (Get-Date).Date `
+                     -RepetitionInterval (New-TimeSpan -Minutes $CheckMinutes)
+        $watch.Repetition.Duration = ''
+        $watch.Repetition.StopAtDurationEnd = $false
+        $triggers += $watch
     }
 
     # Interactive is what makes the terminal window visible on the desktop; a
@@ -123,11 +153,13 @@ function Enable-CCAutostartTask {
         -StartWhenAvailable -MultipleInstances IgnoreNew `
         -ExecutionTimeLimit ([TimeSpan]::Zero)
 
-    Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
+    Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggers `
         -Principal $principal -Settings $settings -Force `
         -Description "Start the central-control Claude Code session at logon." | Out-Null
 
-    Write-Host "registered scheduled task '$TaskName' (logon + ${DelaySeconds}s)" -ForegroundColor Green
+    $when = if ($CheckMinutes -gt 0) { "logon + ${DelaySeconds}s, then every ${CheckMinutes}m" }
+            else { "logon + ${DelaySeconds}s" }
+    Write-Host "registered scheduled task '$TaskName' ($when)" -ForegroundColor Green
 }
 
 function Enable-CCAutostartStartup {
@@ -139,6 +171,7 @@ function Enable-CCAutostartStartup {
     )
     Set-Content -LiteralPath $StartupFile -Value ($body -join "`r`n") -Encoding ASCII
     Write-Host "wrote $StartupFile" -ForegroundColor Green
+    Write-Host "the Startup folder only fires at logon; use -Method Task for the watchdog." -ForegroundColor Yellow
 }
 
 # --- dispatch -------------------------------------------------------------

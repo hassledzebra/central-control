@@ -5,7 +5,8 @@
       cc list [-Prune] [-Json]
       cc stop <name> [-Force] [-Forget]      cc stop -All
   cc autostart -Enable|-Disable|-Status
-                                    start this control session at logon
+                                    start this control session at logon, and
+                                    restart it whenever it is not running
 
 Spawning from the directory list:
   cc dirs                           numbers every known folder
@@ -50,7 +51,8 @@ central-control -- launch Claude Code sessions in new terminal windows.
   cc stop <name> [-Forget]          end a session (window stays open)
   cc stop -All
   cc autostart -Enable|-Disable|-Status
-                                    start this control session at logon
+                                    start this control session at logon, and
+                                    restart it whenever it is not running
 
 Spawning from the directory list:
   cc dirs                           numbers every known folder

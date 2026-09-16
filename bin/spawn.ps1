@@ -49,6 +49,11 @@ param(
     # Name of the launching session, so the child knows who to report back to.
     [string]$Parent,
 
+    # Do nothing when a session with this -Name is already answering as a
+    # peer. What the autostart watchdog uses so a timer can re-run this
+    # script harmlessly.
+    [switch]$IfNotRunning,
+
     [switch]$Create,
     [switch]$NoTrust,
     [switch]$NoRemoteControl,
@@ -59,6 +64,17 @@ param(
 . (Join-Path $PSScriptRoot 'lib.ps1')
 
 Initialize-CCState
+
+# Checked against ~/.claude/sessions rather than this project's registry, so a
+# control session someone started by hand also counts as already running.
+if ($IfNotRunning) {
+    if (-not $Name) { throw "-IfNotRunning needs -Name; there is nothing to look for otherwise." }
+    $running = Get-CCPeer -Name (ConvertTo-CCSlug $Name)
+    if ($running) {
+        Write-Host "session '$Name' is already running (pid $($running.pid)) -- nothing to do."
+        return
+    }
+}
 
 if ($Directory -match '^[0-9]+$') { $Directory = Resolve-CCIndex -Number ([int]$Directory) }
 $dir = Resolve-CCDirectory -Path $Directory -Create:$Create

@@ -54,7 +54,7 @@ dependencies to fetch.
 | `cc list` | what has been spawned, and what is still alive |
 | `cc resume <name> ["message"]` | reopen a stopped session on the same conversation |
 | `cc stop <name>` | end a session (its window stays open) |
-| `cc autostart -Enable` | bring the control session up at logon |
+| `cc autostart -Enable` | bring the control session up at logon, and keep it up |
 
 Everything after the verb is passed straight through to the script in `bin\`, so
 `cc spawn -?` lists every option.
@@ -100,12 +100,14 @@ Spawning is not instant: the window opens, then Claude takes a few seconds to
 start and register. `cc list` sees the process immediately; `ListAgents` shows
 the peer once it has finished starting.
 
-### Starting at logon
+### Keeping the control session up
 
 ```
-cc autostart -Enable                          # scheduled task, 60s after logon
-cc autostart -Enable -DelaySeconds 120 -Model opus
-cc autostart -Enable -Method Startup          # a .cmd in the Startup folder instead
+cc autostart -Enable                          # logon + a check every 5 minutes
+cc autostart -Enable -CheckMinutes 2 -Model opus
+cc autostart -Enable -CheckMinutes 0           # logon only, no watchdog
+cc autostart -Enable -DelaySeconds 120
+cc autostart -Enable -Method Startup           # a .cmd in the Startup folder instead
 cc autostart -Status
 cc autostart -Disable
 ```
@@ -115,12 +117,24 @@ cc autostart -Disable
 terminal window with Remote Control on, named `central-control`. If task
 registration is blocked by policy it falls back to the Startup folder on its own.
 
+The task fires at logon and then every `-CheckMinutes`. Each run passes
+`-IfNotRunning`, which looks for a live peer of that name in
+`~/.claude/sessions` and exits without doing anything when it finds one. So a
+window you closed, a crash, or a machine you logged back into all come back
+within one interval, and a session you started by hand is left alone. The
+Startup-folder method has no timer and only covers logon.
+
 Verify it without rebooting:
 
 ```powershell
 Start-ScheduledTask -TaskName central-control
 Get-ScheduledTaskInfo -TaskName central-control   # LastTaskResult should be 0
 ```
+
+Remote Control itself is a Claude Code setting, not something this project owns.
+`"remoteControlAtStartup": true` in `~/.claude/settings.json` turns it on for
+every session on this machine; it has to be at user scope, because repo-scoped
+settings are not allowed to enable it.
 
 ## How it works
 
