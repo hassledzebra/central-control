@@ -36,6 +36,7 @@ $map = @{
     dirs   = 'dirs.ps1'
     where  = 'dirs.ps1'
     autostart = 'autostart.ps1'
+    recap  = 'recap.ps1'
 }
 
 function Show-CCHelp {
@@ -52,6 +53,8 @@ central-control -- launch Claude Code sessions in new terminal windows.
   cc resume <name> [prompt]         reopen a stopped session, same conversation
   cc stop <name> [-Forget]          end a session (window stays open)
   cc stop -All
+  cc recap [-Days N] [-Limit N]     what was worked on lately and where each
+                                    thread stopped, read from the transcripts
   cc autostart -Enable|-Disable|-Status
                                     start this control session at logon, and
                                     restart it whenever it is not running
