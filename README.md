@@ -112,7 +112,9 @@ for a conversation to continue before making one:
 
 Conversations that are open somewhere right now are never candidates, so two
 windows cannot land on the same transcript. A spawn into a busy folder continues
-the newest conversation that is *free*, or starts a new one.
+the newest conversation that is *free*, or starts a new one. Neither are the
+empty transcripts left behind by sessions that opened and exchanged nothing —
+resuming one of those is a new conversation wearing an old id.
 
 The spawn output says which way it went:
 

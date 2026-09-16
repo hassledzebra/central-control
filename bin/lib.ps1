@@ -207,14 +207,39 @@ function Get-CCProjectDir {
     return (Join-Path (Join-Path (Get-CCClaudeHome) 'projects') $mangled)
 }
 
+# A session that opened and never exchanged anything still leaves a transcript,
+# a couple of KB of metadata with no turns in it. Resuming one is not wrong, but
+# it is a new conversation wearing an old id, and reporting it as "resumed" is a
+# lie -- so it does not count as something to continue.
+function Test-CCTranscriptHasContent {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $reader = $null
+    try {
+        $reader = New-Object System.IO.StreamReader($Path)
+        for ($n = 0; $n -lt 200; $n++) {
+            $line = $reader.ReadLine()
+            if ($null -eq $line) { break }
+            if ($line -match '"type"\s*:\s*"(user|assistant)"') { return $true }
+        }
+        # Past 200 records without a turn is not a stub; something else is going
+        # on, and refusing to resume a real transcript is the worse mistake.
+        return ($null -ne $reader.ReadLine())
+    } catch {
+        return $false
+    } finally {
+        if ($reader) { $reader.Dispose() }
+    }
+}
+
 function Get-CCConversation {
     param(
         [Parameter(Mandatory = $true)][string]$Directory,
         [Parameter(Mandatory = $true)][string]$SessionId
     )
     $path = Join-Path (Get-CCProjectDir -Directory $Directory) "$SessionId.jsonl"
-    if (Test-Path -LiteralPath $path) { return (Get-Item -LiteralPath $path) }
-    return $null
+    if (-not (Test-Path -LiteralPath $path)) { return $null }
+    if (-not (Test-CCTranscriptHasContent -Path $path)) { return $null }
+    return (Get-Item -LiteralPath $path)
 }
 
 # Resuming a conversation that is already open would either fail or fork it, so
@@ -240,6 +265,7 @@ function Get-CCLastConversation {
         # Anything not named after a session id is not something --resume takes.
         if ($f.BaseName -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') { continue }
         if (Test-CCConversationLive -SessionId $f.BaseName) { continue }
+        if (-not (Test-CCTranscriptHasContent -Path $f.FullName)) { continue }
         return [pscustomobject]@{ sessionId = $f.BaseName; lastUsed = $f.LastWriteTime; path = $f.FullName }
     }
     return $null

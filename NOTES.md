@@ -267,6 +267,14 @@ into `-` — the same mangling `discover.py` already relies on.
   in `~/.claude/sessions/<pid>.json`.
 - A transcript's `LastWriteTime` is what "most recent" means here. It is updated
   as the conversation runs, so the newest file is the one last worked in.
+- **Not every transcript is a conversation.** A session that opens and exchanges
+  nothing still writes one: a couple of KB of `last-prompt`, `custom-title`,
+  `agent-name`, `mode`, `permission-mode`, `bridge-session` records and not a
+  single `user` or `assistant` turn. Resuming it gives a blank session wearing an
+  old id. Found the direct way — spawned onto a 2 KB transcript, asked the new
+  session what the earlier conversation was about, got back *"no prior history"*.
+  `Test-CCTranscriptHasContent` reads until the first turn, so a real transcript
+  costs a handful of lines and a stub costs the whole (small) file.
 
 ---
 
