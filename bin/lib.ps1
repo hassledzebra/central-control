@@ -286,6 +286,14 @@ function Get-CCLiveSession {
 function ConvertTo-CCBatchArg {
     param([string]$Value)
     if ($null -eq $Value) { $Value = '' }
+    # A .cmd line ENDS at the newline and nothing escapes that. An argument
+    # holding one is cut in half: cmd hands the program everything up to the
+    # break, with an unterminated quote, then tries to run the remaining lines
+    # as commands. A multi-line prompt therefore arrives as its first paragraph
+    # only, and the session never learns it was told anything else -- silent,
+    # and indistinguishable from the model ignoring you. Fold them to spaces.
+    $Value = $Value -replace '\r?\n', ' '
+    $Value = $Value -replace ' {2,}', ' '
     $v = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
     $v = [regex]::Replace($v, '(\\+)$', '$1$1')
     $v = $v -replace '%', '%%'
