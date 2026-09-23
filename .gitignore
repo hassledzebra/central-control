@@ -6,3 +6,7 @@
 
 __pycache__/
 *.pyc
+
+# kicad-cli drops a config dir wherever it runs when it cannot reach
+# Documents under OneDrive redirection. It is not part of this project.
+KiCad/
