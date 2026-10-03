@@ -3,6 +3,34 @@
 This folder is a launcher. A session running here opens **other** Claude Code
 sessions in new terminal windows on this machine, and talks to them as peers.
 
+## Find the owning session first
+
+Before doing any task yourself, look for the session that already owns that
+work, and hand the task to it. This session is the dispatcher. It should not
+draft emails, edit manuscripts or work in grant files itself when a project
+session exists for them.
+
+1. **Match the request to a session.** Check `cc list` (name, folder) and
+   `ListAgents`. Typical owners:
+   - `email` drafts and sends mail, including replies in Outlook or Gmail;
+   - `r15` owns `grants\R15`, `gain` owns `paper\GAIN`, `epix2` owns `EPIx2`;
+   - `course`, `thermo` and `bme` own the course folders;
+   - `rfpa`, `copley`, `preamp`, `wiring` and `coil` own the MRI hardware folders.
+2. **If it is stopped, reopen it.** Run `cc resume <name>`, which takes no
+   `-Parent`. Then wait for `Get-CCPeer -Name <name>` to return the peer before
+   sending. A stopped session cannot receive messages.
+3. **Brief it with `SendMessage`.** Include the facts you already established,
+   the paths, and what is the user's call. Pass `notify_when_idle: true` so you
+   hear when it finishes.
+4. **Relay its report to the user, after checking its claims against the files.**
+
+Do the work here only when no session fits, or the task is about
+central-control itself. If no session fits but the work is substantial, spawn
+a new one in the right folder instead.
+
+Messaging a peer to hand over work the user asked for is part of routing.
+Messaging peers on your own initiative is still not allowed.
+
 ## Launching
 
 Run through `cc.cmd` (or `cc.ps1`) from this directory:
