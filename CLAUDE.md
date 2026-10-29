@@ -12,7 +12,9 @@ session exists for them.
 
 1. **Match the request to a session.** Check `cc list` (name, folder) and
    `ListAgents`. Typical owners:
-   - `email` drafts and sends mail, including replies in Outlook or Gmail;
+   - `email` drafts and sends mail, including replies in Outlook or Gmail.
+     The owner often sends drafts himself. Before calling an email draft
+     pending, or reminding him about it, have `email` check `Sent Items`;
    - `r15` owns `grants\R15`, `gain` owns `paper\GAIN`, `epix2` owns `EPIx2`;
    - `course`, `thermo` and `bme` own the course folders;
    - `rfpa`, `copley`, `preamp`, `wiring` and `coil` own the MRI hardware folders.
